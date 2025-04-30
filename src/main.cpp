@@ -7,6 +7,8 @@
 
 #define WINDOW_WIDTH 1920/2
 #define WINDOW_HEIGHT 1080/2
+#define SCREEN_CENTER_X WINDOW_WIDTH/2
+#define SCREEN_CENTER_Y WINDOW_HEIGHT/2
 
 struct Ship
 {
@@ -25,6 +27,61 @@ enum TargetSelectedEnum
 	SELECT_SUN,
 	SELECT_SHIP
 };
+
+
+struct Timer
+{
+	float duration;
+	float startTime;
+	uint32_t CyclesAchieved;
+	bool active;
+	bool repeat;
+};
+
+void StartTimer(Timer& timer)
+{
+	timer.active = true;
+	timer.startTime = GetTime();
+}
+uint32_t EndTimer(Timer& timer)
+{
+	timer.CyclesAchieved++;
+	timer.active = false;
+	timer.startTime = 0;
+	if (timer.repeat)
+	{
+		StartTimer(timer);
+	}
+
+	return timer.CyclesAchieved;
+}
+
+void UpdateTimer(Timer& timer)
+{
+	if (timer.active)
+	{
+		if (GetTime() - timer.startTime >= timer.duration)
+		{
+			EndTimer(timer);
+		}
+	}
+}
+
+Timer CreateTimer(float duration, bool repeat = false, bool autostart = false)
+{
+	Timer timer{};
+	timer.duration = duration;
+	timer.startTime = 0;
+	timer.repeat = 0;
+	timer.CyclesAchieved = 0;
+
+	if (autostart)
+	{
+		StartTimer(timer);
+	}
+
+	return timer;
+}
 
 int main()
 {
@@ -53,13 +110,20 @@ int main()
 	bool ShipSelected = false;
 
 
+	Vector2 SunPos{ SCREEN_CENTER_X, SCREEN_CENTER_Y };
+	float SunRadius = 10;
 
-	Vector2 BackGroundPos{ 300, 300 };
+	float MercuryDistanceFromSun = 57.9 * 10;
+	float MercuryRadius = 2;
+	Vector2 MercuryPos{ SunPos.x + MercuryDistanceFromSun, SunPos.y};
+
+
+	//Vector2 BackGroundPos{ 300, 300 };
 	Vector2 TargetVector = ShipPos;
 
 	// Camera
-	Vector2 CameraPosition{ WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 };
-	Vector2 CameraOffset{ WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2 };
+	Vector2 CameraPosition{ SCREEN_CENTER_X, SCREEN_CENTER_Y };
+	Vector2 CameraOffset{ SCREEN_CENTER_X, SCREEN_CENTER_Y };
 	Camera2D Camera = Camera2D();
 	Camera.zoom = 1;
 	Camera.target = CameraPosition;
@@ -71,6 +135,7 @@ int main()
 	int RotateDirection = 0;
 	float RotateSpeed = 50;
 
+	float GameTime = GetTime();
 	while (!WindowShouldClose())
 	{
 	// Input
@@ -89,28 +154,28 @@ int main()
 		bool CAMERA_MOVE_RIGHT = IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT);
 		bool CAMERA_ZOOM_IN = IsKeyDown(KEY_PAGE_UP);
 		bool CAMERA_ZOOM_OUT = IsKeyDown(KEY_PAGE_DOWN);
-		bool CAMERA_ROTATE_LEFT = IsKeyDown(KEY_Q);
-		bool CAMERA_ROTATE_RIGHT = IsKeyDown(KEY_E);
+		//bool CAMERA_ROTATE_LEFT = IsKeyDown(KEY_Q);
+		//bool CAMERA_ROTATE_RIGHT = IsKeyDown(KEY_E);
 
 		CameraDirection.x = (int(CAMERA_MOVE_LEFT) - int(CAMERA_MOVE_RIGHT));
 		CameraDirection.y = (int(CAMERA_MOVE_UP) - int(CAMERA_MOVE_DOWN));
 		CameraDirection = Vector2Normalize(CameraDirection);
 		ZoomDirection = (int(CAMERA_ZOOM_IN) - int(CAMERA_ZOOM_OUT));
-		RotateDirection = (int(CAMERA_ROTATE_RIGHT) - int(CAMERA_ROTATE_LEFT));
+		//RotateDirection = (int(CAMERA_ROTATE_RIGHT) - int(CAMERA_ROTATE_LEFT));
 		
 		// Debug Input
 		if (!DEBUG_MODE)
 		{
-			DEBUG_MODE = IsKeyPressed(KEY_D) && IsKeyDown(KEY_LEFT_SHIFT);
+			DEBUG_MODE = IsKeyPressed(KEY_F5);
 		}
 		else
 		{
-			DEBUG_MODE = !(IsKeyPressed(KEY_D) && IsKeyDown(KEY_LEFT_SHIFT));
+			DEBUG_MODE = !(IsKeyPressed(KEY_F5));
 		}
 
 	// Check Timers
 		float dt = GetFrameTime();
-
+		std::cout << "dt: " << dt*1000.0 << "ms, GameTime: " << GameTime << "s." << std::endl;
 	// Ai
 
 	// Calculate Positions
@@ -124,7 +189,7 @@ int main()
 		// Collisions
 		
 		if (CheckCollisionPointRec(WorldMousePos, ShipRect)) { MouseHover = MOUSE_HOVER_SHIP; }
-		else if (CheckCollisionPointCircle(WorldMousePos, BackGroundPos, 50)) { MouseHover = MOUSE_HOVER_SUN; }
+		else if (CheckCollisionPointCircle(WorldMousePos, SunPos, SunRadius)) { MouseHover = MOUSE_HOVER_SUN; }
 		else { MouseHover = NO_VALUE; }
 
 	// Updates
@@ -181,9 +246,10 @@ int main()
 		BeginDrawing();
 		BeginMode2D(Camera);
 		ClearBackground(BLACK);
-		DrawCircleV(BackGroundPos, 50, ORANGE);
+		DrawCircleV(SunPos, SunRadius, ORANGE);
+		DrawCircleV(MercuryPos, MercuryRadius, YELLOW);
 		//DrawCircleV(MousePos, 5, WHITE);
-		DrawEllipseLines(BackGroundPos.x, BackGroundPos.y, 300, 300, YELLOW);
+		DrawEllipseLines(SunPos.x, SunPos.y, 300, 300, YELLOW);
 
 		
 		/*Vector2 ShipDrawPos
@@ -207,7 +273,7 @@ int main()
 		}
 		else if (TargetSelected == SELECT_SUN)
 		{
-			DrawCircleLinesV(BackGroundPos, 50, WHITE);
+			DrawCircleLinesV(SunPos, 50, WHITE);
 		}
 		EndMode2D();
 		EndDrawing();
